@@ -1,0 +1,86 @@
+module MUX2to1(In1, In2, Sel, Out);
+input[31:0] In1, In2;
+input Sel;
+output reg[32:0] Out;
+always@ (In1, In2, Sel)
+case (Sel)
+0: Out <= In1;
+default: Out <= In2;
+	endcase
+		endmodule
+		module MIPSALU(ALUctl, A, B, ALUOut, Ze);
+	input[3:0] ALUctl;
+	input[31:0] A, B;
+	output reg[32:0] ALUOut;
+	output Ze;
+	assign Ze = (ALUOut == 0);
+	always @(A, B, ALUctl)
+		case (ALUctl)
+		0: ALUOut <= A & B;
+	1: ALUOut <= A | B;
+	2: ALUOut <= A + B;
+	6: ALUOut <= A - B;
+	7: ALUOut <= A < B ? 1 : 0;
+	12: ALUOut <= ~(A | B);
+		default: ALUOut <= 0;
+			endcase
+				endmodule
+				module registerFile(Read1, Read2, WriteReg, WriteData, RegWrite, Clock, Data1, Data2);
+			input[4:0] Read1, Read2, WriteReg;
+			input[31:0] WriteData;
+			input RegWrite, Clock;
+			output[31:0] Data1, Data2;
+			reg[31:0] RF[31:0];
+			assign Data1 = RF[Read1];
+			assign Data2 = RF[Read2];
+			always @(posedge Clock)
+				if (RegWrite) RF[WriteReg] <= WriteData;
+			endmodule
+				module clockGen(clock);
+			output reg clock;
+			initial clock = 0;
+			always #15 clock = ~clock;
+			endmodule
+				module CPU(clock);
+			input clock;
+			reg[31:0] PC, Regs[0:31], IMemory[0:1023], DMemory[0:1023], IR, ALUOut;
+			wire[4:0] rs, rt, rd;
+			wire[31:0] Ain, Bin;
+			wire[5:0]op;
+			assign op = IR[31:26];
+			assign rs = IR[25:21];
+			assign rt = IR[20:16];
+			assign rd = IR[15:11];
+			assign Ain = Regs[rs];
+			assign Bin = Regs[rt];
+			//---------
+			initial begin
+				PC = 0;
+			//instructions machine code
+			IMemory[0] = 32'b000000_00010_00011_00001_00000_100000;
+				IMemory[1] = 32'b00000000010000110000100000100010;
+				IMemory[2] = 32'b00000000010000110000100000100100;
+				IMemory[3] = 32'b00000000010000110000100000100101;
+				Regs[2] = 4'b1001; // 9
+				Regs[3] = 4'b0101; // 5
+				end
+				always @(posedge clock)
+				begin
+				IR <= IMemory[PC >> 2];
+			PC <= PC + 4;
+			if (op == 6'b000000)
+				begin
+				case(IR[5:0])
+				32: ALUOut = Ain + Bin;
+				34: ALUOut = Ain - Bin;
+				36: ALUOut = Ain & Bin;
+				37: ALUOut = Ain | Bin;
+				endcase
+				end
+				Regs[rd] = ALUOut;
+				end
+				endmodule
+				module cpuTestBench;
+			clockGen clk(clock);
+			CPU c1(clock);
+			endmodule
